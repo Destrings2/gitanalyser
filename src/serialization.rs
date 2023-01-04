@@ -6,15 +6,40 @@
 // }
 
 use std::io::BufWriter;
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use color_eyre::eyre::Result;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CommitData {
     pub commit: String,
-    pub date: String,
+    pub date: NativeDateTimeWrapper,
     pub files: Vec<String>,
 }
+
+#[derive(Debug)]
+pub struct NativeDateTimeWrapper(pub NaiveDateTime);
+
+impl Serialize for NativeDateTimeWrapper {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0.format("%Y-%m-%d %H:%M:%S UTC").to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for NativeDateTimeWrapper {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let dt = NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S UTC").unwrap();
+        Ok(NativeDateTimeWrapper(dt))
+    }
+}
+
 
 pub fn write_to_file(commit_data: &[CommitData], file_path: &str) -> Result<()> {
     let file = std::fs::File::create(file_path)?;

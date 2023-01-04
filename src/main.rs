@@ -47,7 +47,7 @@ fn main() -> Result<()>{
     let num_cores = num_cpus::get();
     let num_processes = args.threads.unwrap_or(num_cores).min(num_cores);
 
-    // Initialize indicatif progress bar
+    // Initialize progress bar
     let m = MultiProgress::new();
     let sty = ProgressStyle::with_template(
         "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
@@ -103,8 +103,16 @@ fn main() -> Result<()>{
         output.lock().unwrap().extend(commit_data);
     });
 
+    m.clear()?;
+
+    // Sort the commits by date
+    println!("Sorting commits...");
+    output.lock().unwrap().sort_by(|a, b| a.date.0.cmp(&b.date.0));
+
     // Write the output to a file
+    println!("Writing output to file...");
     write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
+    println!("Done!");
 
     Ok(())
 }

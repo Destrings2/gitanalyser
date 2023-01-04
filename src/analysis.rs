@@ -4,7 +4,7 @@ use crate::expression_parser::Expr;
 use color_eyre::eyre::Result;
 use crate::commits::get_modified_files;
 use crate::expression_interpreter::evaluate;
-use crate::serialization::{CommitData};
+use crate::serialization::{CommitData, NativeDateTimeWrapper};
 
 pub struct Analyser {
     pub repo: Repository,
@@ -31,7 +31,6 @@ impl Analyser {
     pub fn process_commit(&self, commit: &Commit) -> Result<Option<CommitData>> {
         let commit_id = commit.id();
         let commit_date_time = NaiveDateTime::from_timestamp_opt(commit.time().seconds(), 0).unwrap();
-        let commit_utc = commit_date_time.format("%Y-%m-%d %H:%M:%S UTC").to_string();
 
         let mut files = Vec::new();
 
@@ -86,7 +85,7 @@ impl Analyser {
         if !files.is_empty() {
             Ok(Some(CommitData {
                 commit: commit_id.to_string(),
-                date: commit_utc,
+                date: NativeDateTimeWrapper(commit_date_time),
                 files,
             }))
         } else {
