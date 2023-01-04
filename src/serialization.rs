@@ -5,6 +5,7 @@
 //     "files": [string]
 // }
 
+use std::collections::HashSet;
 use std::io::BufWriter;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ pub struct CommitData {
     pub files: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NativeDateTimeWrapper(pub NaiveDateTime);
 
 impl Serialize for NativeDateTimeWrapper {
@@ -46,4 +47,34 @@ pub fn write_to_file(commit_data: &[CommitData], file_path: &str) -> Result<()> 
     let mut writer = BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, commit_data)?;
     Ok(())
+}
+
+// Given a sorted Vec<CommitData>, remove files names, not taking into account the path, that are
+// not unique.
+pub fn delete_duplicates(commit_data: &[CommitData]) -> Vec<CommitData> {
+    let mut seen_files = HashSet::new();
+    let mut result = Vec::new();
+
+    for commit in commit_data.iter() {
+        let mut files = Vec::new();
+        for file in commit.files.iter() {
+            let path= std::path::Path::new(file);
+            let file_name = path.file_name().unwrap().to_str().unwrap();
+
+            if !seen_files.contains(file_name) {
+                files.push(file.clone());
+                seen_files.insert(file_name);
+            }
+        }
+
+        if !files.is_empty() {
+            result.push(CommitData {
+                commit: commit.commit.clone(),
+                date: commit.date.clone(),
+                files,
+            });
+        }
+    }
+
+    result
 }

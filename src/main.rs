@@ -12,7 +12,7 @@ use color_eyre::eyre::Result;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::commits::CommitSendSync;
 use rayon::prelude::*;
-use crate::serialization::{write_to_file};
+use crate::serialization::{delete_duplicates, write_to_file};
 
 fn main() -> Result<()>{
     color_eyre::install()?;
@@ -108,11 +108,23 @@ fn main() -> Result<()>{
     // Sort the commits by date
     println!("Sorting commits...");
     output.lock().unwrap().sort_by(|a, b| a.date.0.cmp(&b.date.0));
+ 
+    // Delete duplicates
+    if args.delete_duplicates {
+        println!("Deleting duplicates...");
+        let output = delete_duplicates(output.lock().unwrap().as_ref());
+        // Write the output to a file
+        println!("Writing output to file...");
+        write_to_file(&output, args.output.as_str())?;
+        println!("Done!");
+    } else {
+        // Write the output to a file
+        println!("Writing output to file...");
+        write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
+        println!("Done!");
+    }
 
-    // Write the output to a file
-    println!("Writing output to file...");
-    write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
-    println!("Done!");
+
 
     Ok(())
 }

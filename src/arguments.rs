@@ -53,6 +53,10 @@ pub struct Arguments {
     #[clap(long)]
     pub evaluate_name: Option<String>,
 
+    /// Delete duplicate files from the analysis
+    #[clap(long, default_value="false")]
+    pub delete_duplicates: bool,
+
     /// Boolean combination of regular expressions to match the files to analyse.
     /// A regular expression is of the form /regex/.
     /// The files are included in the results if the expression evaluates to true.
