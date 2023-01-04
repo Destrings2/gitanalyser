@@ -110,21 +110,17 @@ fn main() -> Result<()>{
     output.lock().unwrap().sort_by(|a, b| a.date.0.cmp(&b.date.0));
  
     // Delete duplicates
-    if args.delete_duplicates {
+    let to_write = if args.delete_duplicates {
         println!("Deleting duplicates...");
-        let output = delete_duplicates(output.lock().unwrap().as_ref());
-        // Write the output to a file
-        println!("Writing output to file...");
-        write_to_file(&output, args.output.as_str())?;
-        println!("Done!");
+        delete_duplicates(output.lock().unwrap().as_ref())
     } else {
-        // Write the output to a file
-        println!("Writing output to file...");
-        write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
-        println!("Done!");
-    }
+        output.into_inner().unwrap()
+    };
 
-
+    // Write the output to a file
+    println!("Writing output to file...");
+    write_to_file(&to_write, args.output.as_str())?;
+    println!("Done!");
 
     Ok(())
 }
