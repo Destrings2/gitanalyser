@@ -16,7 +16,7 @@ use crate::serialization::{write_to_file};
 
 fn main() -> Result<()>{
     color_eyre::install()?;
-    
+
     // Parse arguments
     let args = arguments::Arguments::parse();
 
@@ -72,9 +72,9 @@ fn main() -> Result<()>{
     let output = std::sync::Mutex::new(Vec::new());
 
     // Initialize the analyser options
+    let evaluate_name_expr = args.evaluate_name.map(|expr| expression_parser::parse(expr.as_str()).unwrap());
     let analyser_opts = analysis::AnalyserOptions {
-        evaluate_name: args.evaluate_name,
-        evaluate_content: args.evaluate_content,
+        evaluate_name: evaluate_name_expr,
     };
 
     // Analyse each chunk in parallel
@@ -82,19 +82,19 @@ fn main() -> Result<()>{
         // Open a repository and clone the other arguments to create an analyser
         let repo = git2::Repository::open(&args.path).unwrap();
         let analyser = analysis::Analyser::new(repo, args.extensions.clone(), expr.clone(), analyser_opts.clone());
-        
+
         // Store the results in a temporary vector
         let mut commit_data = Vec::new();
-        
+
         // Analyse each commit in the chunk
         for commit in chunk {
             let commit_datum = analyser.process_commit(&commit.commit).unwrap();
-            
+
             // If the commit has relevant data, add it to the temporary vector
             if let Some(commit_datum) = commit_datum {
                 commit_data.push(commit_datum);
             }
-            
+
             // Increment the progress bar
             pb.inc(1);
         }
@@ -102,7 +102,7 @@ fn main() -> Result<()>{
         // Lock and append the temporary vector to the output vector
         output.lock().unwrap().extend(commit_data);
     });
-    
+
     // Write the output to a file
     write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
 

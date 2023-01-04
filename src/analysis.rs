@@ -15,8 +15,7 @@ pub struct Analyser {
 
 #[derive(Debug, Clone)]
 pub struct AnalyserOptions {
-    pub(crate) evaluate_name: bool,
-    pub(crate) evaluate_content: bool,
+    pub(crate) evaluate_name: Option<Expr>
 }
 
 impl Analyser {
@@ -71,13 +70,11 @@ impl Analyser {
                     // Include the file if it matches the expression
                     let mut include = false;
 
-                    if self.options.evaluate_name {
-                        include = include || evaluate(&self.expr, &file.name);
+                    if let Some(evaluate_name) = &self.options.evaluate_name {
+                        include = include || evaluate(evaluate_name, &file.name);
                     }
 
-                    if self.options.evaluate_content {
-                        include = include || evaluate(&self.expr, file_content);
-                    }
+                    include = include || evaluate(&self.expr, file_content);
 
                     if include {
                         files.push(file.name.clone());

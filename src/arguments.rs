@@ -50,13 +50,8 @@ pub struct Arguments {
     pub threads: Option<usize>,
 
     /// Compare regex against the file name
-    #[clap(long, default_value="false")]
-    pub evaluate_name: bool,
-
-    /// Compare regex against the file body
-    #[clap(long, default_value="true")]
-    pub evaluate_content: bool,
-
+    #[clap(long)]
+    pub evaluate_name: Option<String>,
 
     /// Boolean combination of regular expressions to match the files to analyse.
     /// A regular expression is of the form /regex/.
