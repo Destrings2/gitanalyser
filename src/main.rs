@@ -7,18 +7,23 @@ mod commits;
 mod serialization;
 mod analysis;
 
-use chrono::NaiveDateTime;
-use clap::Parser;
+use clap::{Parser};
 use color_eyre::eyre::Result;
-use crate::expression_interpreter::evaluate;
-use crate::serialization::{CommitData, File};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use crate::commits::CommitSendSync;
+use rayon::prelude::*;
+use crate::serialization::{write_to_file};
 
 fn main() -> Result<()>{
     color_eyre::install()?;
+    
+    // Parse arguments
     let args = arguments::Arguments::parse();
 
+    // Open repository
     let repository = git2::Repository::open(&args.path)?;
 
+    // Initialize the git repository walker
     let walker = commits::get_commit_walker(
         &repository,
         &args.branch,
@@ -27,58 +32,79 @@ fn main() -> Result<()>{
         args.start_commit,
     )?;
 
+    // Parse the regular expressions tree
     let expr = expression_parser::parse(args.regex_pattern.as_str())?;
 
     println!("Starting analysis...");
     println!("Considering files with extensions: {:?}", args.extensions);
 
-    let mut commits: Vec<CommitData> = Vec::new();
-    // Send each commit to a thread to be analysed using crossbeam
-    
-    
+    // Wrap the commits in a SendSync wrapper so it can be used in parallel
+    let commits: Vec<CommitSendSync> = walker.map(|commit| CommitSendSync {
+        commit
+    }).collect();
 
-    for commit in walker {
-        let commit_id = commit.id();
-        let commit_date_time = NaiveDateTime::from_timestamp_opt(commit.time().seconds(), 0).unwrap();
-        let commit_utc = commit_date_time.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+    // Obtain number of available cores
+    let num_cores = num_cpus::get();
+    let num_processes = args.threads.unwrap_or(num_cores).min(num_cores);
 
-        let mut files = Vec::new();
+    // Initialize indicatif progress bar
+    let m = MultiProgress::new();
+    let sty = ProgressStyle::with_template(
+        "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7}",
+    ).unwrap().progress_chars("##-");
 
-        let modified_files = commits::get_modified_files(&repository, &commit)?;
+    // Initialize Rayon with the number of cores
+    rayon::ThreadPoolBuilder::new().num_threads(num_processes).build_global().unwrap();
 
-        for file in modified_files {
-            if file.modification_type != git2::Delta::Added {
-                continue;
-            }
+    // Split the commits into chunks
+    let chunk_size = (commits.len() as f32 / num_processes as f32).ceil() as usize;
+    let chunks: Vec<Vec<CommitSendSync>> = commits.chunks(chunk_size).map(|chunk| chunk.to_vec()).collect();
 
-            let blob = repository.find_blob(file.oid)?;
-
-            let extension = std::path::Path::new(&file.name).extension();
-
-            if let Some(extension) = extension {
-                let extension = extension.to_os_string().into_string().unwrap();
-                if args.extensions.contains(&extension) {
-                    let file_content = std::str::from_utf8(blob.content()).unwrap();
-
-                    if evaluate(&expr, file_content) {
-                        files.push(File {
-                            name: file.name.clone(),
-                            oid: file.oid.to_string(),
-                        });
-                    }
-                }
-            }
-        }
-
-        if !files.is_empty() {
-            println!("Found commit {} at {} with {} test files", commit_id, commit_utc, files.len());
-            commits.push(CommitData {
-                commit: commit_id.to_string(),
-                date: commit_utc.clone(),
-                files,
-            });
-        }
+    // Create a progress bar for each chunk
+    let mut chunks_and_progress= Vec::new();
+    for chunk in chunks.into_iter() {
+        let progress_bar = m.add(ProgressBar::new(chunk.len() as u64));
+        progress_bar.set_style(sty.clone());
+        chunks_and_progress.push((chunk, progress_bar));
     }
+
+    // Mutex output vector, so it can be used in parallel
+    let output = std::sync::Mutex::new(Vec::new());
+
+    // Initialize the analyser options
+    let analyser_opts = analysis::AnalyserOptions {
+        evaluate_name: args.evaluate_name,
+        evaluate_content: args.evaluate_content,
+    };
+
+    // Analyse each chunk in parallel
+    chunks_and_progress.par_iter().for_each(|(chunk, pb)| {
+        // Open a repository and clone the other arguments to create an analyser
+        let repo = git2::Repository::open(&args.path).unwrap();
+        let analyser = analysis::Analyser::new(repo, args.extensions.clone(), expr.clone(), analyser_opts.clone());
+        
+        // Store the results in a temporary vector
+        let mut commit_data = Vec::new();
+        
+        // Analyse each commit in the chunk
+        for commit in chunk {
+            let commit_datum = analyser.process_commit(&commit.commit).unwrap();
+            
+            // If the commit has relevant data, add it to the temporary vector
+            if let Some(commit_datum) = commit_datum {
+                commit_data.push(commit_datum);
+            }
+            
+            // Increment the progress bar
+            pb.inc(1);
+        }
+
+        // Lock and append the temporary vector to the output vector
+        output.lock().unwrap().extend(commit_data);
+    });
+    
+    // Write the output to a file
+    write_to_file(output.lock().unwrap().as_ref(), args.output.as_str())?;
 
     Ok(())
 }

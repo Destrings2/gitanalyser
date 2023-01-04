@@ -14,18 +14,25 @@ pub fn get_commit_walker<'a>(
     start_commit: Option<String>,
 ) -> Result<impl Iterator<Item=Commit<'a>>, git2::Error> {
 
+    // Initialize the walker
     let mut revwalk = repo.revwalk()?;
+    
+    // Get the reference for the branch
     let branch_reference= repo.find_branch(branch, git2::BranchType::Local)?
         .get().target().unwrap();
 
+    // Set sorting to chronological order
     revwalk.set_sorting(Sort::TIME)?;
 
+    // If a start commit is specified, use it
     if let Some(start_commit) = start_commit {
         revwalk.push(git2::Oid::from_str(&start_commit)?)?;
     }
 
+    // Use the branch reference as the starting point
     revwalk.push(branch_reference)?;
 
+    // Transform the oids into commits and filter out commits that are not in the specified date range
     let commits = revwalk
         .filter_map(|oid| oid.ok())
         .map(|oid| repo.find_commit(oid))
@@ -103,7 +110,7 @@ pub fn get_modified_files(repo: &Repository, commit: &Commit) -> Result<Vec<Comm
 }
 
 // Wraps the commit data with Send + Sync
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CommitSendSync<'a> {
     pub commit: Commit<'a>
 }

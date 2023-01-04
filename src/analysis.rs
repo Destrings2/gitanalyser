@@ -4,20 +4,28 @@ use crate::expression_parser::Expr;
 use color_eyre::eyre::Result;
 use crate::commits::get_modified_files;
 use crate::expression_interpreter::evaluate;
-use crate::serialization::{CommitData, File};
+use crate::serialization::{CommitData};
 
-pub struct Analyser<'a> {
-    pub repo: &'a Repository,
+pub struct Analyser {
+    pub repo: Repository,
     pub extensions: Vec<String>,
     pub expr: Expr,
+    options: AnalyserOptions,
 }
 
-impl<'a> Analyser<'a> {
-    pub fn new(repo: &'a Repository, extensions: Vec<String>, expr: Expr) -> Analyser {
+#[derive(Debug, Clone)]
+pub struct AnalyserOptions {
+    pub(crate) evaluate_name: bool,
+    pub(crate) evaluate_content: bool,
+}
+
+impl Analyser {
+    pub fn new(repo: Repository, extensions: Vec<String>, expr: Expr, opts: AnalyserOptions) -> Analyser {
         Analyser {
             repo,
             extensions,
             expr,
+            options: opts,
         }
     }
 
@@ -28,27 +36,51 @@ impl<'a> Analyser<'a> {
 
         let mut files = Vec::new();
 
-        let modified_files = get_modified_files(self.repo, commit)?;
+        // Get modified files from the commit
+        let modified_files = get_modified_files(&self.repo, commit)?;
 
         for file in modified_files {
+            // Only consider new files
             if file.modification_type != git2::Delta::Added {
                 continue;
             }
 
-            let blob = self.repo.find_blob(file.oid)?;
+            // Get the referenced blob object
+            let blob = self.repo.find_blob(file.oid);
+            if blob.is_err() {
+                continue;
+            }
 
+            let blob = blob.unwrap();
+
+            // Get the file extension
             let extension = std::path::Path::new(&file.name).extension();
 
+            // If it has an extension check it against the list of extensions
             if let Some(extension) = extension {
                 let extension = extension.to_os_string().into_string().unwrap();
                 if self.extensions.contains(&extension) {
-                    let file_content = std::str::from_utf8(blob.content()).unwrap();
+                    // Read the blob content as utf8
+                    let file_content = std::str::from_utf8(blob.content());
+                    if file_content.is_err() {
+                        continue;
+                    }
 
-                    if evaluate(&self.expr, file_content) {
-                        files.push(File {
-                            name: file.name.clone(),
-                            oid: file.oid.to_string(),
-                        });
+                    let file_content = file_content.unwrap();
+
+                    // Include the file if it matches the expression
+                    let mut include = false;
+
+                    if self.options.evaluate_name {
+                        include = include || evaluate(&self.expr, &file.name);
+                    }
+
+                    if self.options.evaluate_content {
+                        include = include || evaluate(&self.expr, file_content);
+                    }
+
+                    if include {
+                        files.push(file.name.clone());
                     }
                 }
             }

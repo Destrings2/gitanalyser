@@ -40,6 +40,7 @@ pub fn parse(input: &str) -> Result<Expr> {
 // Parses a single expression, which can be a regular expression, a NOT expression, an
 // AND expression or an OR expression
 fn parse_expr(input: &str) -> IResult<&str, Expr> {
+    // An expression can be a regular expression, a NOT expression, an AND expression or an OR expression
     alt((
         parse_not,
         parse_and,

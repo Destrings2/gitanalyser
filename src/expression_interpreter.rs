@@ -4,6 +4,7 @@ pub fn evaluate(expression: &Expr, line: &str) -> bool {
     match expression {
         Expr::And(expressions) => {
             for expr in expressions {
+                // AND evaluates to false if any of the expressions evaluates to false
                 if !evaluate(expr, line) {
                     return false;
                 }
@@ -12,6 +13,7 @@ pub fn evaluate(expression: &Expr, line: &str) -> bool {
         }
         Expr::Or(expressions) => {
             for expr in expressions {
+                // OR evaluates to true if any of the expressions evaluates to true
                 if evaluate(expr, line) {
                     return true;
                 }
@@ -19,9 +21,11 @@ pub fn evaluate(expression: &Expr, line: &str) -> bool {
             false
         }
         Expr::Not(expression) => {
+            // NOT evaluates to the opposite of the expression
             return !evaluate(expression.as_ref(), line);
         }
         Expr::Regex(regex) => {
+            // A regex evaluates to true if it matches the line
             regex.is_match(line)
         }
     }

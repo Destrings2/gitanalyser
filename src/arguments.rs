@@ -43,10 +43,19 @@ pub struct Arguments {
     /// File extensions to include in the analysis
     #[clap(short, long, default_value="java")]
     pub extensions: Vec<String>,
-    
+
     /// Number of threads to use for the analysis
-    #[clap(short, long, default_value="1")]
-    pub threads: usize,
+    /// defaults to the number of logical cores
+    #[clap(short, long)]
+    pub threads: Option<usize>,
+
+    /// Compare regex against the file name
+    #[clap(long, default_value="false")]
+    pub evaluate_name: bool,
+
+    /// Compare regex against the file body
+    #[clap(long, default_value="true")]
+    pub evaluate_content: bool,
 
 
     /// Boolean combination of regular expressions to match the files to analyse.
@@ -62,6 +71,9 @@ pub struct Arguments {
     ///
     /// AND(OR(expression1, expression2), NOT(expression3)) - a combination of AND, OR and NOT
     pub regex_pattern: String,
+
+    /// Output file
+    pub output: String,
 }
 
 fn parse_date(s: &str) -> Result<NaiveDate> {
