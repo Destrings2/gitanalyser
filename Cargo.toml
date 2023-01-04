@@ -1,0 +1,20 @@
+[package]
+name = "gitanalyser"
+version = "0.1.0"
+edition = "2021"
+description = "A tool to obtain files from git repositories that match given patterns"
+authors = ["Lombardo Paredes"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] }
+git2 = "0.15"
+regex = "1.7"
+lazy_static = "1.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4.23"
+color-eyre = "0.6.2"
+nom = "7.1"
+num_cpus = "1.15"
