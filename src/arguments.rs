@@ -53,6 +53,10 @@ pub struct Arguments {
     #[clap(long)]
     pub evaluate_name: Option<String>,
 
+    /// Include non-test files in the analysis
+    #[clap(long, default_value="false")]
+    pub save_non_tests: bool,
+
     /// Delete duplicate files from the analysis
     #[clap(long, default_value="false")]
     pub delete_duplicates: bool,

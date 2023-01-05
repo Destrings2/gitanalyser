@@ -64,7 +64,7 @@ pub fn get_commit_walker<'a>(
 pub struct CommitFile {
     pub name: String,
     pub oid: git2::Oid,
-    pub modification_type: git2::Delta,
+    pub modification_type: git2::Delta
 }
 
 pub fn get_modified_files(repo: &Repository, commit: &Commit) -> Result<Vec<CommitFile>>{

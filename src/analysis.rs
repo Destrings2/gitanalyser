@@ -2,9 +2,10 @@ use chrono::NaiveDateTime;
 use git2::{Commit, Repository};
 use crate::expression_parser::Expr;
 use color_eyre::eyre::Result;
+use std::collections::HashSet;
 use crate::commits::get_modified_files;
 use crate::expression_interpreter::evaluate;
-use crate::serialization::{CommitData, NativeDateTimeWrapper};
+use gitanalyser::serialization::{CommitData, NativeDateTimeWrapper};
 
 pub struct Analyser {
     pub repo: Repository,
@@ -15,7 +16,8 @@ pub struct Analyser {
 
 #[derive(Debug, Clone)]
 pub struct AnalyserOptions {
-    pub(crate) evaluate_name: Option<Expr>
+    pub(crate) evaluate_name: Option<Expr>,
+    pub(crate) include_non_tests: bool,
 }
 
 impl Analyser {
@@ -33,6 +35,7 @@ impl Analyser {
         let commit_date_time = NaiveDateTime::from_timestamp_opt(commit.time().seconds(), 0).unwrap();
 
         let mut files = Vec::new();
+        let mut non_test_files = Vec::new();
 
         // Get modified files from the commit
         let modified_files = get_modified_files(&self.repo, commit)?;
@@ -67,16 +70,18 @@ impl Analyser {
                     let file_content = file_content.unwrap();
 
                     // Include the file if it matches the expression
-                    let mut include = false;
+                    let mut is_test = false;
 
                     if let Some(evaluate_name) = &self.options.evaluate_name {
-                        include = include || evaluate(evaluate_name, &file.name);
+                        is_test = is_test || evaluate(evaluate_name, &file.name);
                     }
 
-                    include = include || evaluate(&self.expr, file_content);
+                    is_test = is_test || evaluate(&self.expr, file_content);
 
-                    if include {
-                        files.push(file.name.clone());
+                    if is_test {
+                        files.push(file.name);
+                    } else if self.options.include_non_tests {
+                        non_test_files.push(file.name);
                     }
                 }
             }
@@ -86,10 +91,55 @@ impl Analyser {
             Ok(Some(CommitData {
                 commit: commit_id.to_string(),
                 date: NativeDateTimeWrapper(commit_date_time),
-                files,
+                test_files: files,
+                non_test_files: if self.options.include_non_tests { Some(non_test_files) } else { None },
             }))
         } else {
             Ok(None)
         }
     }
+}
+
+// Given a sorted Vec<CommitData>, remove files names, not taking into account the path, that are
+// not unique.
+pub fn delete_duplicates(commit_data: &[CommitData]) -> Vec<CommitData> {
+    let mut seen_files = HashSet::new();
+    let mut result = Vec::new();
+
+    for commit in commit_data.iter() {
+        let mut files: Vec<Vec<String>> = vec![Vec::new();2];
+
+        let mut handles = vec![&commit.test_files];
+
+        if let Some(non_test_files) = &commit.non_test_files {
+            handles.push(non_test_files);
+        }
+
+        for (i, handle) in handles.into_iter().enumerate() {
+            for file in handle.iter() {
+                let path= std::path::Path::new(file.as_str());
+                let file_name = path.file_name().unwrap().to_str().unwrap();
+
+                if !seen_files.contains(file_name) {
+                    files[i].push(file.clone());
+                    seen_files.insert(file_name);
+                }
+            }
+        }
+
+        let mut files = files.into_iter();
+        let test_files = files.next().unwrap();
+        let non_test_files = files.next().unwrap_or_default();
+
+        if !test_files.is_empty() || !non_test_files.is_empty() {
+            result.push(CommitData {
+                commit: commit.commit.clone(),
+                date: commit.date.clone(),
+                test_files,
+                non_test_files: if non_test_files.is_empty() { None } else { Some(non_test_files) },
+            });
+        }
+    }
+
+    result
 }

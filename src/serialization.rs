@@ -6,7 +6,7 @@
 // }
 
 use std::collections::HashSet;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use color_eyre::eyre::Result;
@@ -15,7 +15,9 @@ use color_eyre::eyre::Result;
 pub struct CommitData {
     pub commit: String,
     pub date: NativeDateTimeWrapper,
-    pub files: Vec<String>,
+    pub test_files: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub non_test_files: Option<Vec<String>>
 }
 
 #[derive(Debug, Clone)]
@@ -49,32 +51,9 @@ pub fn write_to_file(commit_data: &[CommitData], file_path: &str) -> Result<()> 
     Ok(())
 }
 
-// Given a sorted Vec<CommitData>, remove files names, not taking into account the path, that are
-// not unique.
-pub fn delete_duplicates(commit_data: &[CommitData]) -> Vec<CommitData> {
-    let mut seen_files = HashSet::new();
-    let mut result = Vec::new();
-
-    for commit in commit_data.iter() {
-        let mut files = Vec::new();
-        for file in commit.files.iter() {
-            let path= std::path::Path::new(file);
-            let file_name = path.file_name().unwrap().to_str().unwrap();
-
-            if !seen_files.contains(file_name) {
-                files.push(file.clone());
-                seen_files.insert(file_name);
-            }
-        }
-
-        if !files.is_empty() {
-            result.push(CommitData {
-                commit: commit.commit.clone(),
-                date: commit.date.clone(),
-                files,
-            });
-        }
-    }
-
-    result
+pub fn read_from_file(file_path: &str) -> Result<Vec<CommitData>> {
+    let file = std::fs::File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let commit_data: Vec<CommitData> = serde_json::from_reader(reader)?;
+    Ok(commit_data)
 }

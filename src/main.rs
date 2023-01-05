@@ -4,15 +4,15 @@ mod arguments;
 mod expression_parser;
 mod expression_interpreter;
 mod commits;
-mod serialization;
 mod analysis;
 
-use clap::{Parser};
+use clap::Parser;
 use color_eyre::eyre::Result;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::commits::CommitSendSync;
 use rayon::prelude::*;
-use crate::serialization::{delete_duplicates, write_to_file};
+use analysis::delete_duplicates;
+use gitanalyser::serialization::write_to_file;
 
 fn main() -> Result<()>{
     color_eyre::install()?;
@@ -69,12 +69,13 @@ fn main() -> Result<()>{
     }
 
     // Mutex output vector, so it can be used in parallel
-    let output = std::sync::Mutex::new(Vec::new());
+    let files = std::sync::Mutex::new(Vec::new());
 
     // Initialize the analyser options
     let evaluate_name_expr = args.evaluate_name.map(|expr| expression_parser::parse(expr.as_str()).unwrap());
     let analyser_opts = analysis::AnalyserOptions {
         evaluate_name: evaluate_name_expr,
+        include_non_tests: args.save_non_tests,
     };
 
     // Analyse each chunk in parallel
@@ -100,26 +101,27 @@ fn main() -> Result<()>{
         }
 
         // Lock and append the temporary vector to the output vector
-        output.lock().unwrap().extend(commit_data);
+        files.lock().unwrap().extend(commit_data);
     });
 
     m.clear()?;
 
     // Sort the commits by date
     println!("Sorting commits...");
-    output.lock().unwrap().sort_by(|a, b| a.date.0.cmp(&b.date.0));
- 
+    let mut files = files.into_inner().unwrap();
+    files.sort_by(|a, b| a.date.0.cmp(&b.date.0));
+
     // Delete duplicates
-    let to_write = if args.delete_duplicates {
+    let files_to_write = if args.delete_duplicates {
         println!("Deleting duplicates...");
-        delete_duplicates(output.lock().unwrap().as_ref())
+        delete_duplicates(&files)
     } else {
-        output.into_inner().unwrap()
+        files
     };
 
     // Write the output to a file
     println!("Writing output to file...");
-    write_to_file(&to_write, args.output.as_str())?;
+    write_to_file(&files_to_write, args.output.as_str())?;
     println!("Done!");
 
     Ok(())

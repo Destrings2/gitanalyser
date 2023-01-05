@@ -21,3 +21,8 @@ num_cpus = "1.15"
 rayon = "1.6"
 ctrlc = "3.2"
 indicatif = "0.17"
+
+
+[lib]
+name = "gitanalyser"
+path = "src/lib.rs"
