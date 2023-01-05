@@ -15,9 +15,10 @@ use color_eyre::eyre::Result;
 pub struct CommitData {
     pub commit: String,
     pub date: NativeDateTimeWrapper,
+    pub size: usize,
     pub test_files: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub non_test_files: Option<Vec<String>>
+    pub non_test_files: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]

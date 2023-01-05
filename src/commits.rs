@@ -67,30 +67,18 @@ pub struct CommitFile {
     pub modification_type: git2::Delta
 }
 
-pub fn get_modified_files(repo: &Repository, commit: &Commit, full_names: bool) -> Result<Vec<CommitFile>>{
+pub fn get_modified_files(repo: &Repository, commit: &Commit, full_names: bool) -> Result<(Vec<CommitFile>, usize)> {
     let commit_tree = commit.tree()?;
     let n_parents = commit.parent_count();
 
-    if n_parents == 0 {
-        // This is the first commit in the repository
-        // All files are added
-        let mut files = Vec::new();
-
-        commit_tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
-            files.push(CommitFile {
-                name: entry.name().unwrap().to_string(),
-                oid: entry.id(),
-                modification_type: git2::Delta::Added,
-            });
-            git2::TreeWalkResult::Ok
-        })?;
-
-        Ok(files)
-    } else if n_parents == 1 {
+    if n_parents == 1 {
         let parent_commit = commit.parent(0)?;
         let parent_tree = parent_commit.tree()?;
         let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?;
         let diff_deltas = diff.deltas();
+
+        let stats = diff.stats()?;
+        let changed_lines = stats.insertions() + stats.deletions();
 
         let mut modified_files = Vec::new();
 
@@ -109,10 +97,10 @@ pub fn get_modified_files(repo: &Repository, commit: &Commit, full_names: bool) 
             });
         }
 
-        Ok(modified_files)
+        Ok((modified_files, changed_lines))
     } else {
         // This is a merge commit
-        Ok(Vec::new())
+        Ok((Vec::new(), 0))
     }
 }
 

@@ -39,7 +39,7 @@ impl Analyser {
         let mut non_test_files = Vec::new();
 
         // Get modified files from the commit
-        let modified_files = get_modified_files(&self.repo, commit, self.options.full_path)?;
+        let (modified_files, changed_lines) = get_modified_files(&self.repo, commit, self.options.full_path)?;
 
         for file in modified_files {
             // Only consider new files
@@ -92,6 +92,7 @@ impl Analyser {
             Ok(Some(CommitData {
                 commit: commit_id.to_string(),
                 date: NativeDateTimeWrapper(commit_date_time),
+                size: changed_lines,
                 test_files: files,
                 non_test_files: if self.options.include_non_tests { Some(non_test_files) } else { None },
             }))
@@ -135,6 +136,7 @@ pub fn delete_duplicates(commit_data: &[CommitData]) -> Vec<CommitData> {
         if !test_files.is_empty() || !non_test_files.is_empty() {
             result.push(CommitData {
                 commit: commit.commit.clone(),
+                size: commit.size,
                 date: commit.date.clone(),
                 test_files,
                 non_test_files: if non_test_files.is_empty() { None } else { Some(non_test_files) },
