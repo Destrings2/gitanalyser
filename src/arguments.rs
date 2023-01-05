@@ -49,6 +49,10 @@ pub struct Arguments {
     #[clap(short, long)]
     pub threads: Option<usize>,
 
+    /// Whether to save the full file path or only the file name
+    #[clap(long, default_value="false")]
+    pub full_path: bool,
+
     /// Compare regex against the file name
     #[clap(long)]
     pub evaluate_name: Option<String>,

@@ -67,7 +67,7 @@ pub struct CommitFile {
     pub modification_type: git2::Delta
 }
 
-pub fn get_modified_files(repo: &Repository, commit: &Commit) -> Result<Vec<CommitFile>>{
+pub fn get_modified_files(repo: &Repository, commit: &Commit, full_names: bool) -> Result<Vec<CommitFile>>{
     let commit_tree = commit.tree()?;
     let n_parents = commit.parent_count();
 
@@ -95,8 +95,15 @@ pub fn get_modified_files(repo: &Repository, commit: &Commit) -> Result<Vec<Comm
         let mut modified_files = Vec::new();
 
         for delta in diff_deltas {
+
+            let file_name = if full_names {
+                delta.new_file().path().unwrap().to_str().unwrap().to_string()
+            } else {
+                delta.new_file().path().unwrap().file_name().unwrap().to_str().unwrap().to_string()
+            };
+
             modified_files.push(CommitFile {
-                name: delta.new_file().path().unwrap().to_string_lossy().to_string(),
+                name: file_name,
                 oid: delta.new_file().id(),
                 modification_type: delta.status(),
             });

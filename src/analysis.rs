@@ -18,6 +18,7 @@ pub struct Analyser {
 pub struct AnalyserOptions {
     pub(crate) evaluate_name: Option<Expr>,
     pub(crate) include_non_tests: bool,
+    pub(crate) full_path: bool,
 }
 
 impl Analyser {
@@ -38,7 +39,7 @@ impl Analyser {
         let mut non_test_files = Vec::new();
 
         // Get modified files from the commit
-        let modified_files = get_modified_files(&self.repo, commit)?;
+        let modified_files = get_modified_files(&self.repo, commit, self.options.full_path)?;
 
         for file in modified_files {
             // Only consider new files

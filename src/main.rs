@@ -76,6 +76,7 @@ fn main() -> Result<()>{
     let analyser_opts = analysis::AnalyserOptions {
         evaluate_name: evaluate_name_expr,
         include_non_tests: args.save_non_tests,
+        full_path: args.full_path,
     };
 
     // Analyse each chunk in parallel
