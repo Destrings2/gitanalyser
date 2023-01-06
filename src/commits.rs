@@ -14,12 +14,11 @@ pub fn get_commit_walker<'a>(
     start_commit: Option<String>,
 ) -> Result<impl Iterator<Item=Commit<'a>>, git2::Error> {
 
+    let possible_branch_names = branch.split('|').collect::<Vec<&str>>();
+
     // Initialize the walker
     let mut revwalk = repo.revwalk()?;
-    
-    // Get the reference for the branch
-    let branch_reference= repo.find_branch(branch, git2::BranchType::Local)?
-        .get().target().unwrap();
+
 
     // Set sorting to chronological order
     revwalk.set_sorting(Sort::TIME)?;
@@ -30,7 +29,20 @@ pub fn get_commit_walker<'a>(
     }
 
     // Use the branch reference as the starting point
-    revwalk.push(branch_reference)?;
+    let mut has_branch = false;
+    for branch_name in possible_branch_names {
+        let branch_ref = repo.find_branch(branch_name, git2::BranchType::Local);
+        if let Ok(branch) = branch_ref {
+            let branch_commit = branch.get().target().unwrap();
+            revwalk.push(branch_commit)?;
+            has_branch = true;
+            break;
+        }
+    }
+
+    if !has_branch {
+        return Err(git2::Error::from_str("No branch found"));
+    }
 
     // Transform the oids into commits and filter out commits that are not in the specified date range
     let commits = revwalk
