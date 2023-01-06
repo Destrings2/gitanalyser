@@ -5,7 +5,6 @@
 //     "files": [string]
 // }
 
-use std::collections::HashSet;
 use std::io::{BufReader, BufWriter};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
