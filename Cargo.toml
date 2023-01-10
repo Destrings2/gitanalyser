@@ -20,8 +20,3 @@ nom = "7.1"
 num_cpus = "1.15"
 rayon = "1.6"
 indicatif = "0.17"
-
-
-[lib]
-name = "gitanalyser"
-path = "src/lib.rs"

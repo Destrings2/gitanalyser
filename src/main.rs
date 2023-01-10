@@ -5,6 +5,7 @@ mod expression_parser;
 mod expression_interpreter;
 mod commits;
 mod analysis;
+mod serialization;
 
 use clap::Parser;
 use color_eyre::eyre::Result;
@@ -12,7 +13,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::commits::CommitSendSync;
 use rayon::prelude::*;
 use analysis::delete_duplicates;
-use gitanalyser::serialization::write_to_file;
+use crate::serialization::write_to_file;
 
 fn main() -> Result<()>{
     color_eyre::install()?;

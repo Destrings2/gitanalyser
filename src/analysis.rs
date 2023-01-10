@@ -5,7 +5,7 @@ use color_eyre::eyre::Result;
 use std::collections::HashSet;
 use crate::commits::get_modified_files;
 use crate::expression_interpreter::evaluate;
-use gitanalyser::serialization::{CommitData, NativeDateTimeWrapper};
+use crate::serialization::{CommitData, NativeDateTimeWrapper};
 
 pub struct Analyser {
     pub repo: Repository,

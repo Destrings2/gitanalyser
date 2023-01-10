@@ -5,7 +5,7 @@
 //     "files": [string]
 // }
 
-use std::io::{BufReader, BufWriter};
+use std::io::{BufWriter};
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use color_eyre::eyre::Result;
@@ -49,11 +49,4 @@ pub fn write_to_file(commit_data: &[CommitData], file_path: &str) -> Result<()> 
     let mut writer = BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, commit_data)?;
     Ok(())
-}
-
-pub fn read_from_file(file_path: &str) -> Result<Vec<CommitData>> {
-    let file = std::fs::File::open(file_path)?;
-    let reader = BufReader::new(file);
-    let commit_data: Vec<CommitData> = serde_json::from_reader(reader)?;
-    Ok(commit_data)
 }
